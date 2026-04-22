@@ -1,0 +1,16 @@
+[Unit]
+Description=IR Remote MQTT Bridge
+After=network.target pigpiod.service
+
+[Service]
+Type=simple
+WorkingDirectory=/var/lib/ir-bridge
+EnvironmentFile=/etc/ir-bridge/env
+ExecStart=/opt/ir-bridge/venv/bin/python /opt/ir-bridge/mqtt_bridge.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

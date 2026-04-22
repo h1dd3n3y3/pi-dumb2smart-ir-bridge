@@ -60,7 +60,7 @@ _remotes: dict = {}
 # ---------------------------------------------------------------------------
 
 def _script_dir() -> str:
-    return os.path.dirname(os.path.abspath(__file__))
+    return os.getenv("IR_DATA_DIR", os.path.dirname(os.path.abspath(__file__)))
 
 
 def load_all_devices() -> dict:
