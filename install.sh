@@ -13,6 +13,9 @@ error() { printf "${red}[ERROR]${nc} %s\n" "$*" >&2; }
 
 [[ $EUID -eq 0 ]] || { error "Run with sudo: sudo ./install.sh"; exit 1; }
 
+# Prevent needrestart from auto-restarting sshd mid-install
+export NEEDRESTART_MODE=l
+
 info "Installing system packages..."
 apt-get update -qq
 apt-get install -y python3-venv python3-dev gcc
