@@ -54,6 +54,11 @@ DEVICE_RENAME_TOPIC = f"{BASE_TOPIC}/device/rename"
 
 _remotes: dict = {}
 
+# Tracks whether the startup sequence (cleanup + subscribe) has completed for
+# the current connection. Reset on each reconnect so subscriptions are
+# re-established and stale discovery is re-evaluated.
+_startup: dict = {"done": False, "timer": None, "lock": threading.Lock()}
+
 
 # ---------------------------------------------------------------------------
 # Device helpers
@@ -93,6 +98,15 @@ def _save_raw(device_path: str, data: dict) -> None:
 # ---------------------------------------------------------------------------
 # MQTT Discovery
 # ---------------------------------------------------------------------------
+
+def _clear_device_discovery(client: mqtt.Client, device_name: str, keys: list) -> None:
+    """Publish empty retained messages to remove a device's discovery entries."""
+    for key in keys:
+        uid = f"ir_{device_name}_{key}"
+        client.publish(f"{DISCOVERY_PREFIX}/button/{uid}/config", "", retain=True)
+    if keys:
+        print(f"[INFO] Cleared discovery for '{device_name}' ({len(keys)} key(s))")
+
 
 def publish_discovery(client: mqtt.Client, devices: dict) -> None:
     for device_name, keys in devices.items():
@@ -142,6 +156,49 @@ def _republish_devices(client: mqtt.Client) -> None:
             client.subscribe(f"{BASE_TOPIC}/{device_name}/send")
         _build_remotes(devices)
     print("[INFO] Device list reloaded.")
+
+
+# ---------------------------------------------------------------------------
+# Startup sequence
+# ---------------------------------------------------------------------------
+
+def _do_startup(client: mqtt.Client, prev_devices: dict) -> None:
+    """Complete startup: clear stale discovery topics then publish current state."""
+    with _startup["lock"]:
+        if _startup["done"]:
+            return
+        _startup["done"] = True
+
+    if _startup["timer"]:
+        _startup["timer"].cancel()
+        _startup["timer"] = None
+
+    current_devices = load_all_devices()
+
+    # Clear discovery for any device/key present in the previous session but not now
+    for device_name, keys in prev_devices.items():
+        stale = keys if device_name not in current_devices else [
+            k for k in keys if k not in current_devices[device_name]
+        ]
+        if stale:
+            _clear_device_discovery(client, device_name, stale)
+
+    if not current_devices:
+        print("[WARN] No device JSON files found — nothing to publish.")
+        client.publish(DEVICES_TOPIC, json.dumps({}), retain=True)
+    else:
+        client.publish(DEVICES_TOPIC, json.dumps(current_devices), retain=True)
+        publish_discovery(client, current_devices)
+        _build_remotes(current_devices)
+        for device_name in current_devices:
+            topic = f"{BASE_TOPIC}/{device_name}/send"
+            client.subscribe(topic)
+            print(f"[INFO] Subscribed to {topic}")
+
+    for topic in (RELOAD_TOPIC, RECORD_START_TOPIC, KEY_DELETE_TOPIC, KEY_RENAME_TOPIC,
+                  DEVICE_CREATE_TOPIC, DEVICE_DELETE_TOPIC, DEVICE_RENAME_TOPIC):
+        client.subscribe(topic)
+        print(f"[INFO] Subscribed to {topic}")
 
 
 # ---------------------------------------------------------------------------
@@ -212,6 +269,7 @@ def _handle_delete(client: mqtt.Client, payload: str) -> None:
         del keys[actual_key]
         raw["keys"] = keys
         _save_raw(device_path, raw)
+        _clear_device_discovery(client, device_name, [actual_key])
         _republish_devices(client)
         print(f"[INFO] Deleted '{actual_key}' from '{device_name}'")
 
@@ -234,6 +292,7 @@ def _handle_rename(client: mqtt.Client, payload: str) -> None:
         keys[new_name] = keys.pop(actual_old)
         raw["keys"] = keys
         _save_raw(device_path, raw)
+        _clear_device_discovery(client, device_name, [actual_old])
         _republish_devices(client)
         print(f"[INFO] Renamed '{old_name}' -> '{new_name}' in '{device_name}'")
 
@@ -273,6 +332,8 @@ def _handle_delete_device(client: mqtt.Client, payload: str) -> None:
         print(f"[INFO] Device '{device_name}' not found, skipping delete")
         return
 
+    keys = list(_load_raw(device_path).get("keys", {}).keys())
+    _clear_device_discovery(client, device_name, keys)
     os.remove(device_path)
     _republish_devices(client)
     print(f"[INFO] Deleted device '{device_name}'")
@@ -300,6 +361,8 @@ def _handle_rename_device(client: mqtt.Client, payload: str) -> None:
         print(f"[INFO] Device '{new_name}' already exists, skipping rename")
         return
 
+    keys = list(_load_raw(old_path).get("keys", {}).keys())
+    _clear_device_discovery(client, old_name, keys)
     os.rename(old_path, new_path)
     _republish_devices(client)
     print(f"[INFO] Renamed device '{old_name}' -> '{new_name}'")
@@ -317,26 +380,31 @@ def on_connect(client, userdata, _flags, rc, _properties=None):
     print(f"[INFO] Connected to {MQTT_HOST}:{MQTT_PORT}")
     client.publish(AVAILABILITY_TOPIC, "online", retain=True)
 
-    devices = load_all_devices()
-    if not devices:
-        print("[WARN] No device JSON files found — nothing to publish.")
-    else:
-        client.publish(DEVICES_TOPIC, json.dumps(devices), retain=True)
-        publish_discovery(client, devices)
-        _build_remotes(devices)
-        for device_name in devices:
-            topic = f"{BASE_TOPIC}/{device_name}/send"
-            client.subscribe(topic)
-            print(f"[INFO] Subscribed to {topic}")
+    _startup["done"] = False
 
-    for topic in (RELOAD_TOPIC, RECORD_START_TOPIC, KEY_DELETE_TOPIC, KEY_RENAME_TOPIC, DEVICE_CREATE_TOPIC, DEVICE_DELETE_TOPIC, DEVICE_RENAME_TOPIC):
-        client.subscribe(topic)
-        print(f"[INFO] Subscribed to {topic}")
+    # Subscribe to DEVICES_TOPIC to receive the retained previous device list.
+    # on_message will call _do_startup once it arrives.
+    # The timer fires if there is no retained message (first-ever install).
+    client.subscribe(DEVICES_TOPIC)
+    t = threading.Timer(1.0, _do_startup, args=[client, {}])
+    t.daemon = True
+    t.start()
+    _startup["timer"] = t
 
 
 def on_message(client, userdata, msg):
     topic = msg.topic
     payload = msg.payload.decode().strip()
+
+    # First message on DEVICES_TOPIC is the retained previous session state.
+    # Use it to clean up any stale discovery topics before publishing current state.
+    if not _startup["done"] and topic == DEVICES_TOPIC:
+        try:
+            prev_devices = json.loads(payload) if payload else {}
+        except Exception:
+            prev_devices = {}
+        _do_startup(client, prev_devices)
+        return
 
     if topic == RELOAD_TOPIC:
         print("[INFO] Reload requested.")
