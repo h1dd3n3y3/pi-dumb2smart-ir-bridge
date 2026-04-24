@@ -18,6 +18,10 @@ fi
 info "Updating bridge script..."
 cp "$SCRIPT_DIR/mqtt_bridge.py" "$INSTALL_DIR/"
 
+info "Updating service file..."
+cp "$SCRIPT_DIR/ir-bridge.service" /etc/systemd/system/ir-bridge.service
+systemctl daemon-reload
+
 info "Updating Python packages..."
 "$INSTALL_DIR/venv/bin/pip" install --quiet --upgrade paho-mqtt piir
 
