@@ -20,4 +20,4 @@ jobs:
         run: |
           cd ~/pi-dumb2smart-ir && git pull
           sudo cp -r custom_components/ir_remote ~/home-assistant/config/custom_components/
-          cd ~/home-assistant && docker compose restart
+          echo "HA integration updated. Restart Home Assistant from the UI (Developer Tools → Restart) to apply changes."
