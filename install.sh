@@ -18,12 +18,22 @@ export NEEDRESTART_MODE=l
 
 info "Installing system packages..."
 apt-get update -qq
-apt-get install -y python3-venv python3-dev gcc
+apt-get install -y python3-venv python3-dev python3-setuptools gcc wget unzip make
 
 if command -v pigpiod &>/dev/null; then
     info "pigpiod already installed at $(command -v pigpiod) — skipping."
+elif apt-get install -y pigpiod; then
+    info "pigpiod installed via apt."
 else
-    apt-get install -y pigpiod || { error "pigpiod not found in apt. Install it from source: https://github.com/joan2937/pigpio"; exit 1; }
+    info "pigpiod not in apt — building from source..."
+    cd /tmp
+    wget -q https://github.com/joan2937/pigpio/archive/master.zip
+    unzip -q master.zip
+    make -C pigpio-master -j"$(nproc)"
+    make -C pigpio-master install
+    rm -rf /tmp/pigpio-master /tmp/master.zip
+    cd "$SCRIPT_DIR"
+    info "pigpiod built and installed from source."
 fi
 
 info "Creating directories..."
