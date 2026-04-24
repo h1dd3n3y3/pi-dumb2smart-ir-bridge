@@ -1,7 +1,7 @@
 import json
 
 import voluptuous as vol
-from homeassistant.components import mqtt
+from homeassistant.components import mqtt, persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
@@ -19,8 +19,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     }
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
+    prefix = entry.data.get(CONF_TOPIC_PREFIX, DEFAULT_TOPIC_PREFIX)
+
+    async def _handle_restart_needed(msg):
+        persistent_notification.async_create(
+            hass,
+            "The IR Remote integration has been updated. "
+            "[Restart Home Assistant](/config/system) to apply the changes.",
+            title="IR Remote: Restart Required",
+            notification_id="ir_remote_restart_required",
+        )
+
+    await mqtt.async_subscribe(hass, f"{prefix}/system/restart_needed", _handle_restart_needed)
+
     if not hass.services.has_service(DOMAIN, "record_key"):
-        prefix = entry.data.get(CONF_TOPIC_PREFIX, DEFAULT_TOPIC_PREFIX)
 
         async def record_key(call: ServiceCall) -> None:
             await mqtt.async_publish(
