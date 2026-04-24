@@ -1,4 +1,10 @@
 {
+  "issues": {
+    "restart_required": {
+      "title": "Restart required",
+      "description": "The IR Remote integration has been updated. Restart Home Assistant to apply the changes."
+    }
+  },
   "config": {
     "step": {
       "user": {
