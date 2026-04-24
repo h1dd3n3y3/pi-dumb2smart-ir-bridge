@@ -52,8 +52,10 @@ cp "$SCRIPT_DIR/ir-bridge.service" "$SERVICE_FILE"
 systemctl daemon-reload
 
 if [[ ! -f "$CONF_DIR/env" ]]; then
-    read -rp "MQTT broker host [homeassistant.local]: " mqtt_host
-    mqtt_host="${mqtt_host:-homeassistant.local}"
+    read -rp "MQTT broker host (HA server IP or hostname): " mqtt_host
+    while [[ -z "$mqtt_host" ]]; do
+        read -rp "MQTT broker host (HA server IP or hostname): " mqtt_host
+    done
     read -rp "MQTT broker port [1883]: " mqtt_port
     mqtt_port="${mqtt_port:-1883}"
     cat > "$CONF_DIR/env" <<EOF
