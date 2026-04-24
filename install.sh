@@ -54,6 +54,23 @@ else
 fi
 
 info "Enabling pigpiod..."
+if ! systemctl cat pigpiod &>/dev/null; then
+    info "No pigpiod.service found — creating one for source-installed pigpiod..."
+    cat > /etc/systemd/system/pigpiod.service <<'EOF'
+[Unit]
+Description=Daemon required to control GPIO pins via pigpio
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/pigpiod -l
+ExecStop=/bin/kill -INT $MAINPID
+Type=forking
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl daemon-reload
+fi
 systemctl enable --now pigpiod
 
 info "Enabling ir-bridge..."
