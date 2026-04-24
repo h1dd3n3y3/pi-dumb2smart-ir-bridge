@@ -75,14 +75,6 @@ EOF
     systemctl daemon-reload
 fi
 
-# Remove any @reboot crontab entry for pigpiod — systemd owns it now
-SUDO_USER="${SUDO_USER:-}"
-if [[ -n "$SUDO_USER" ]]; then
-    if crontab -u "$SUDO_USER" -l 2>/dev/null | grep -q pigpiod; then
-        info "Removing pigpiod @reboot crontab entry for $SUDO_USER (systemd takes over)..."
-        crontab -u "$SUDO_USER" -l 2>/dev/null | grep -v pigpiod | crontab -u "$SUDO_USER" -
-    fi
-fi
 # Kill any orphaned pigpiod started outside systemd so systemd can own the pid file
 killall pigpiod 2>/dev/null || true
 
