@@ -1,6 +1,9 @@
 import json
+import logging
 
 from homeassistant.components import mqtt
+
+_LOGGER = logging.getLogger(__name__)
 from homeassistant.components.text import TextEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
@@ -31,7 +34,10 @@ async def async_setup_entry(
         try:
             devices = json.loads(msg.payload)
         except Exception:
+            _LOGGER.exception("Failed to parse devices payload: %s", msg.payload)
             return
+
+        _LOGGER.debug("handle_devices fired: %s", list(devices.keys()))
 
         valid_unique_ids: set[str] = {
             f"ir_remote_{prefix}_new_remote",
@@ -58,6 +64,7 @@ async def async_setup_entry(
                 new_entities.append(rename_entity)
 
         if new_entities:
+            _LOGGER.debug("Adding %d text entities for: %s", len(new_entities), [e.unique_id for e in new_entities])
             async_add_entities(new_entities)
 
     await mqtt.async_subscribe(hass, f"{prefix}/devices", handle_devices)

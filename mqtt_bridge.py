@@ -38,6 +38,7 @@ RX_GPIO = 18
 
 MQTT_HOST = os.getenv("MQTT_HOST", "pi5.local")
 MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
+DATA_DIR = os.getenv("IR_DATA_DIR", os.path.dirname(os.path.abspath(__file__)))
 
 DISCOVERY_PREFIX = "homeassistant"
 BASE_TOPIC = "ir_remote"
@@ -64,13 +65,9 @@ _startup: dict = {"done": False, "timer": None, "lock": threading.Lock()}
 # Device helpers
 # ---------------------------------------------------------------------------
 
-def _script_dir() -> str:
-    return os.getenv("IR_DATA_DIR", os.path.dirname(os.path.abspath(__file__)))
-
-
 def load_all_devices() -> dict:
     devices = {}
-    for path in sorted(glob.glob(os.path.join(_script_dir(), "*.json"))):
+    for path in sorted(glob.glob(os.path.join(DATA_DIR, "*.json"))):
         name = os.path.splitext(os.path.basename(path))[0]
         try:
             with open(path) as f:
@@ -139,7 +136,7 @@ def _build_remotes(devices: dict) -> None:
     for device_name, keys in devices.items():
         if not keys:
             continue
-        device_path = os.path.join(_script_dir(), f"{device_name}.json")
+        device_path = os.path.join(DATA_DIR, f"{device_name}.json")
         try:
             _remotes[device_name] = piir.Remote(device_path, TX_GPIO)
         except Exception as exc:
@@ -214,7 +211,7 @@ def _handle_record(client: mqtt.Client, payload: str) -> None:
         client.publish(RECORD_STATUS_TOPIC, json.dumps({"status": "error", "message": "Invalid payload"}))
         return
 
-    device_path = os.path.join(_script_dir(), f"{device_name}.json")
+    device_path = os.path.join(DATA_DIR, f"{device_name}.json")
 
     # For new devices with no keys, remove the placeholder so piir auto-detects protocol
     raw = _load_raw(device_path)
@@ -261,7 +258,7 @@ def _handle_delete(client: mqtt.Client, payload: str) -> None:
     except Exception:
         return
 
-    device_path = os.path.join(_script_dir(), f"{device_name}.json")
+    device_path = os.path.join(DATA_DIR, f"{device_name}.json")
     raw = _load_raw(device_path)
     keys = raw.get("keys", {})
     actual_key = next((k for k in keys if k.lower() == key_name.lower()), None)
@@ -283,7 +280,7 @@ def _handle_rename(client: mqtt.Client, payload: str) -> None:
     except Exception:
         return
 
-    device_path = os.path.join(_script_dir(), f"{device_name}.json")
+    device_path = os.path.join(DATA_DIR, f"{device_name}.json")
     raw = _load_raw(device_path)
     keys = raw.get("keys", {})
     actual_old = next((k for k in keys if k.lower() == old_name.lower()), None)
@@ -307,7 +304,7 @@ def _handle_create_device(client: mqtt.Client, payload: str) -> None:
     if not device_name:
         return
 
-    device_path = os.path.join(_script_dir(), f"{device_name}.json")
+    device_path = os.path.join(DATA_DIR, f"{device_name}.json")
     if os.path.exists(device_path):
         print(f"[INFO] Device '{device_name}' already exists, skipping")
         return
@@ -327,7 +324,7 @@ def _handle_delete_device(client: mqtt.Client, payload: str) -> None:
     if not device_name:
         return
 
-    device_path = os.path.join(_script_dir(), f"{device_name}.json")
+    device_path = os.path.join(DATA_DIR, f"{device_name}.json")
     if not os.path.exists(device_path):
         print(f"[INFO] Device '{device_name}' not found, skipping delete")
         return
@@ -350,8 +347,8 @@ def _handle_rename_device(client: mqtt.Client, payload: str) -> None:
     if not old_name or not new_name:
         return
 
-    old_path = os.path.join(_script_dir(), f"{old_name}.json")
-    new_path = os.path.join(_script_dir(), f"{new_name}.json")
+    old_path = os.path.join(DATA_DIR, f"{old_name}.json")
+    new_path = os.path.join(DATA_DIR, f"{new_name}.json")
 
     if not os.path.exists(old_path):
         print(f"[INFO] Device '{old_name}' not found, skipping rename")
