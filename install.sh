@@ -15,7 +15,13 @@ error() { printf "${red}[ERROR]${nc} %s\n" "$*" >&2; }
 
 info "Installing system packages..."
 apt-get update -qq
-apt-get install -y python3-venv python3-dev gcc pigpiod
+apt-get install -y python3-venv python3-dev gcc
+
+if command -v pigpiod &>/dev/null; then
+    info "pigpiod already installed at $(command -v pigpiod) — skipping."
+else
+    apt-get install -y pigpiod || { error "pigpiod not found in apt. Install it from source: https://github.com/joan2937/pigpio"; exit 1; }
+fi
 
 info "Creating directories..."
 install -d "$INSTALL_DIR" "$DATA_DIR" "$CONF_DIR"
