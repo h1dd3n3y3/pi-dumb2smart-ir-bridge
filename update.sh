@@ -10,6 +10,11 @@ error() { printf "${red}[ERROR]${nc} %s\n" "$*" >&2; }
 
 [[ $EUID -eq 0 ]] || { error "Run with sudo: sudo ./update.sh"; exit 1; }
 
+if [[ ! -d "$INSTALL_DIR" ]]; then
+    error "ir-bridge is not installed. Run install.sh first."
+    exit 1
+fi
+
 info "Updating bridge script..."
 cp "$SCRIPT_DIR/mqtt_bridge.py" "$INSTALL_DIR/"
 
