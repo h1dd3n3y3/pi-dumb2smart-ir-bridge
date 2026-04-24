@@ -25,4 +25,24 @@ else
     info "Data kept at /var/lib/ir-bridge."
 fi
 
+info "Stopping and disabling pigpiod..."
+systemctl stop pigpiod 2>/dev/null || true
+systemctl disable pigpiod 2>/dev/null || true
+rm -f /etc/systemd/system/pigpiod.service
+systemctl daemon-reload
+
+read -rp "Remove pigpiod? [y/N]: " confirm
+if [[ "${confirm,,}" == "y" ]]; then
+    if command -v pigpiod &>/dev/null && dpkg -l pigpiod &>/dev/null 2>&1; then
+        apt-get remove -y pigpiod
+    else
+        rm -f /usr/local/bin/pigpiod /usr/local/bin/pig2vcd /usr/local/bin/pigs
+        rm -f /usr/local/lib/libpigpio*.so /usr/local/lib/libpigpio*.a
+        rm -f /usr/local/include/pigpio*.h
+    fi
+    info "pigpiod removed."
+else
+    info "pigpiod kept."
+fi
+
 info "Uninstall complete."
