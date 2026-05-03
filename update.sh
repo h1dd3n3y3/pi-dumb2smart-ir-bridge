@@ -30,3 +30,4 @@ systemctl restart ir-bridge
 
 info "Update complete."
 systemctl status ir-bridge --no-pager || true
+
