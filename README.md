@@ -118,8 +118,9 @@ pi-dumb2smart-ir-bridge/
 ├── remote.py               # Interactive CLI (optional, local use)
 ├── ir-bridge.service       # systemd service unit file
 ├── install.sh              # One-time setup: installs dependencies, venv, and registers the service
-├── uninstall.sh            # Tears down the service and cleans up installed files
-├── update.sh               # Called by CI/CD: copies latest files and restarts the service
+├── uninstall.sh              # Tears down the service and cleans up installed files
+├── update.sh                 # Called by CI/CD: copies latest files and restarts the service
+├── change_mqtt_topic.sh      # Changes the MQTT prefix: clears old retained messages and restarts with the new prefix
 ├── requirements.txt        # Python dependencies
 └── .github/
     └── workflows/
