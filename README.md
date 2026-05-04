@@ -73,6 +73,32 @@ A terminal menu for direct local use without Home Assistant. Lets you select a d
 
 ---
 
+## Using a pre-made device file
+
+Device files are JSON files stored in `/var/lib/ir-bridge/` on the Pi Zero. Each file represents one remote (e.g. `samsung_tv.json`) and contains the recorded IR codes for that device.
+
+To load a custom or pre-made file:
+
+1. Place the `.json` file in `/var/lib/ir-bridge/` on the Pi Zero
+2. Trigger a reload — no service restart needed:
+   - Use the **Reload Devices** button in the Home Assistant integration, or
+   - `sudo systemctl restart ir-bridge` as a fallback
+
+The bridge will pick up the new file and publish the keys to Home Assistant automatically.
+
+The expected file format is:
+
+```json
+{
+  "keys": {
+    "power": "<IR code>",
+    "volume_up": "<IR code>"
+  }
+}
+```
+
+---
+
 ## Deployment (CI/CD)
 
 The repo uses GitHub Actions with a self-hosted runner on Pi 5. On every push to `main`:
