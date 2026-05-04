@@ -1,4 +1,4 @@
-# pi-dumb2smart-ir
+# pi-dumb2smart-ir-bridge
 
 [![Deploy](https://github.com/h1dd3n3y3/pi-dumb2smart-ir-bridge/actions/workflows/deploy.yml/badge.svg)](https://github.com/h1dd3n3y3/pi-dumb2smart-ir-bridge/actions/workflows/deploy.yml)
 
