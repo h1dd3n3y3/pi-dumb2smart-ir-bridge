@@ -58,12 +58,26 @@ if [[ ! -f "$CONF_DIR/env" ]]; then
     done
     read -rp "MQTT broker port (default is 1883): " mqtt_port
     mqtt_port="${mqtt_port:-1883}"
+
+    printf "\nEach bridge must have a unique MQTT topic prefix.\n"
+    printf "You will need to enter this exact value when adding this bridge in Home Assistant.\n"
+    printf "Examples: ir_remote_amp, ir_remote_tv\n\n"
+    read -rp "MQTT topic prefix for this bridge: " mqtt_prefix
+    while [[ -z "$mqtt_prefix" ]]; do
+        read -rp "MQTT topic prefix for this bridge: " mqtt_prefix
+    done
+
     cat > "$CONF_DIR/env" <<EOF
 MQTT_HOST=$mqtt_host
 MQTT_PORT=$mqtt_port
+MQTT_PREFIX=$mqtt_prefix
 IR_DATA_DIR=$DATA_DIR
 EOF
     info "Config written to $CONF_DIR/env"
+    printf "\n"
+    printf "${green}[IMPORTANT]${nc} Your MQTT topic prefix is: ${green}${mqtt_prefix}${nc}\n"
+    printf "            You will need this when setting up the Home Assistant integration.\n"
+    printf "            You can always find it later in: $CONF_DIR/env\n\n"
 else
     info "Config already exists at $CONF_DIR/env — skipping. Edit it to change settings."
 fi

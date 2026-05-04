@@ -3,24 +3,25 @@
 
 Connects to the MQTT broker without credentials (anonymous access).
 Publishes:
-  - ir_remote/devices          retained JSON device+key map
-  - homeassistant/button/..    MQTT Discovery configs
-  - ir_remote/availability     online/offline LWT
-  - ir_remote/record/status    recording progress/result
+  - <prefix>/devices          retained JSON device+key map
+  - homeassistant/button/..   MQTT Discovery configs
+  - <prefix>/availability     online/offline LWT
+  - <prefix>/record/status    recording progress/result
 
 Subscribes to:
-  - ir_remote/<device>/send    payload = key name → fires IR signal
-  - ir_remote/reload           re-read JSON files and republish
-  - ir_remote/record/start     payload = {"device":..,"key":..} → record key
-  - ir_remote/key/delete       payload = {"device":..,"key":..} → delete key
-  - ir_remote/key/rename       payload = {"device":..,"old":..,"new":..} → rename key
-  - ir_remote/device/create    payload = {"device":..} → create new device JSON
-  - ir_remote/device/delete    payload = {"device":..} → delete device JSON
-  - ir_remote/device/rename    payload = {"old":..,"new":..} → rename device JSON
+  - <prefix>/<device>/send    payload = key name → fires IR signal
+  - <prefix>/reload           re-read JSON files and republish
+  - <prefix>/record/start     payload = {"device":..,"key":..} → record key
+  - <prefix>/key/delete       payload = {"device":..,"key":..} → delete key
+  - <prefix>/key/rename       payload = {"device":..,"old":..,"new":..} → rename key
+  - <prefix>/device/create    payload = {"device":..} → create new device JSON
+  - <prefix>/device/delete    payload = {"device":..} → delete device JSON
+  - <prefix>/device/rename    payload = {"old":..,"new":..} → rename device JSON
 
 Environment variables:
-    MQTT_HOST   broker hostname/IP  (default: pi5.local)
-    MQTT_PORT   broker port         (default: 1883)
+    MQTT_HOST      broker hostname/IP  (default: pi5.local)
+    MQTT_PORT      broker port         (default: 1883)
+    MQTT_PREFIX    MQTT topic prefix   (default: ir_remote) — must be unique per bridge
 """
 
 import glob
@@ -41,7 +42,7 @@ MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
 DATA_DIR = os.getenv("IR_DATA_DIR", os.path.dirname(os.path.abspath(__file__)))
 
 DISCOVERY_PREFIX = "homeassistant"
-BASE_TOPIC = "ir_remote"
+BASE_TOPIC = os.getenv("MQTT_PREFIX", "ir_remote")
 AVAILABILITY_TOPIC = f"{BASE_TOPIC}/availability"
 DEVICES_TOPIC = f"{BASE_TOPIC}/devices"
 RELOAD_TOPIC = f"{BASE_TOPIC}/reload"
