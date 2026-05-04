@@ -3,19 +3,21 @@
 
 Connects to the MQTT broker without credentials (anonymous access).
 Publishes:
-  - <prefix>/devices          retained JSON device+key map
-  - <prefix>/availability     online/offline LWT
-  - <prefix>/record/status    recording progress/result
+  - <prefix>/devices                   retained JSON device+key map
+  - <prefix>/key_options               retained JSON per-key repeat options
+  - <prefix>/availability              online/offline LWT
+  - <prefix>/record/status             recording progress/result
 
 Subscribes to:
-  - <prefix>/<device>/send    payload = key name → fires IR signal
-  - <prefix>/reload           re-read JSON files and republish
-  - <prefix>/record/start     payload = {"device":..,"key":..} → record key
-  - <prefix>/key/delete       payload = {"device":..,"key":..} → delete key
-  - <prefix>/key/rename       payload = {"device":..,"old":..,"new":..} → rename key
-  - <prefix>/device/create    payload = {"device":..} → create new device JSON
-  - <prefix>/device/delete    payload = {"device":..} → delete device JSON
-  - <prefix>/device/rename    payload = {"old":..,"new":..} → rename device JSON
+  - <prefix>/<device>/send             payload = key name → fires IR signal
+  - <prefix>/reload                    re-read JSON files and republish
+  - <prefix>/record/start              payload = {"device":..,"key":..} → record key
+  - <prefix>/key/delete                payload = {"device":..,"key":..} → delete key
+  - <prefix>/key/rename                payload = {"device":..,"old":..,"new":..} → rename key
+  - <prefix>/key/set_options           payload = {"device":..,"key":..,"repeat":N,"delay_ms":N} → set repeat
+  - <prefix>/device/create             payload = {"device":..} → create new device JSON
+  - <prefix>/device/delete             payload = {"device":..} → delete device JSON
+  - <prefix>/device/rename             payload = {"old":..,"new":..} → rename device JSON
 
 Environment variables:
     MQTT_HOST      broker hostname/IP  (default: pi5.local)
@@ -29,6 +31,7 @@ import os
 import subprocess
 import sys
 import threading
+import time
 
 import paho.mqtt.client as mqtt
 import piir  # type: ignore
@@ -49,11 +52,14 @@ RECORD_START_TOPIC = f"{BASE_TOPIC}/record/start"
 RECORD_STATUS_TOPIC = f"{BASE_TOPIC}/record/status"
 KEY_DELETE_TOPIC = f"{BASE_TOPIC}/key/delete"
 KEY_RENAME_TOPIC = f"{BASE_TOPIC}/key/rename"
+KEY_SET_OPTIONS_TOPIC = f"{BASE_TOPIC}/key/set_options"
+KEY_OPTIONS_TOPIC = f"{BASE_TOPIC}/key_options"
 DEVICE_CREATE_TOPIC = f"{BASE_TOPIC}/device/create"
 DEVICE_DELETE_TOPIC = f"{BASE_TOPIC}/device/delete"
 DEVICE_RENAME_TOPIC = f"{BASE_TOPIC}/device/rename"
 
 _remotes: dict = {}
+_key_options: dict = {}  # {device_name: {key_name: {"repeat": N, "delay_ms": N}}}
 
 # Tracks whether the startup sequence (cleanup + subscribe) has completed for
 # the current connection. Reset on each reconnect so subscriptions are
@@ -107,17 +113,65 @@ def _clear_device_discovery(client: mqtt.Client, device_name: str, keys: list) -
 
 
 def _build_remotes(devices: dict) -> None:
-    global _remotes
+    global _remotes, _key_options
     _remotes = {}
+    _key_options = {}
     for device_name, keys in devices.items():
         if not keys:
             continue
         device_path = os.path.join(DATA_DIR, f"{device_name}.json")
         try:
             _remotes[device_name] = piir.Remote(device_path, TX_GPIO)
+            opts = _load_raw(device_path).get("key_options", {})
+            if opts:
+                _key_options[device_name] = opts
         except Exception as exc:
             print(f"[WARN] Could not load remote for {device_name}: {exc}")
     print(f"[INFO] Remotes cached for: {list(_remotes)}")
+
+
+def _publish_key_options(client: mqtt.Client) -> None:
+    all_opts = {}
+    for path in sorted(glob.glob(os.path.join(DATA_DIR, "*.json"))):
+        name = os.path.splitext(os.path.basename(path))[0]
+        opts = _load_raw(path).get("key_options", {})
+        if opts:
+            all_opts[name] = opts
+    client.publish(KEY_OPTIONS_TOPIC, json.dumps(all_opts), retain=True)
+
+
+def _handle_set_options(client: mqtt.Client, payload: str) -> None:
+    try:
+        data = json.loads(payload)
+        device_name = data["device"]
+        key_name = data["key"]
+        repeat = int(data.get("repeat", 1))
+        delay_ms = int(data.get("delay_ms", 0))
+    except Exception:
+        return
+
+    device_path = os.path.join(DATA_DIR, f"{device_name}.json")
+    if not os.path.exists(device_path):
+        return
+
+    raw = _load_raw(device_path)
+    if repeat > 1:
+        raw.setdefault("key_options", {})[key_name] = {"repeat": repeat, "delay_ms": delay_ms}
+    else:
+        raw.get("key_options", {}).pop(key_name, None)
+        if not raw.get("key_options"):
+            raw.pop("key_options", None)
+    _save_raw(device_path, raw)
+
+    if device_name in _remotes:
+        opts = raw.get("key_options", {})
+        if opts:
+            _key_options[device_name] = opts
+        else:
+            _key_options.pop(device_name, None)
+
+    _publish_key_options(client)
+    print(f"[INFO] Options updated for '{device_name}/{key_name}': repeat={repeat}, delay_ms={delay_ms}")
 
 
 def _republish_devices(client: mqtt.Client) -> None:
@@ -127,6 +181,7 @@ def _republish_devices(client: mqtt.Client) -> None:
         for device_name in devices:
             client.subscribe(f"{BASE_TOPIC}/{device_name}/send")
         _build_remotes(devices)
+    _publish_key_options(client)
     print("[INFO] Device list reloaded.")
 
 
@@ -159,13 +214,14 @@ def _do_startup(client: mqtt.Client, prev_devices: dict) -> None:
     else:
         client.publish(DEVICES_TOPIC, json.dumps(current_devices), retain=True)
         _build_remotes(current_devices)
+        _publish_key_options(client)
         for device_name in current_devices:
             topic = f"{BASE_TOPIC}/{device_name}/send"
             client.subscribe(topic)
             print(f"[INFO] Subscribed to {topic}")
 
     for topic in (RELOAD_TOPIC, RECORD_START_TOPIC, KEY_DELETE_TOPIC, KEY_RENAME_TOPIC,
-                  DEVICE_CREATE_TOPIC, DEVICE_DELETE_TOPIC, DEVICE_RENAME_TOPIC):
+                  KEY_SET_OPTIONS_TOPIC, DEVICE_CREATE_TOPIC, DEVICE_DELETE_TOPIC, DEVICE_RENAME_TOPIC):
         client.subscribe(topic)
         print(f"[INFO] Subscribed to {topic}")
 
@@ -397,6 +453,9 @@ def on_message(client, userdata, msg):
     elif topic == DEVICE_RENAME_TOPIC:
         _handle_rename_device(client, payload)
 
+    elif topic == KEY_SET_OPTIONS_TOPIC:
+        _handle_set_options(client, payload)
+
     else:
         parts = topic.split("/")
         if len(parts) == 3:
@@ -406,8 +465,14 @@ def on_message(client, userdata, msg):
                 print(f"[ERROR] No cached remote for '{device_name}'")
                 return
             try:
+                opts = _key_options.get(device_name, {}).get(payload, {})
+                repeat = opts.get("repeat", 1)
+                delay_ms = opts.get("delay_ms", 0)
                 remote.send(payload)
-                print(f"[INFO] Sent: {device_name}/{payload}")
+                for _ in range(repeat - 1):
+                    time.sleep(delay_ms / 1000)
+                    remote.send(payload)
+                print(f"[INFO] Sent: {device_name}/{payload}" + (f" x{repeat}" if repeat > 1 else ""))
             except Exception as exc:
                 print(f"[ERROR] Failed to send {device_name}/{payload}: {exc}")
 
