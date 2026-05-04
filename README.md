@@ -57,23 +57,15 @@ The core service. It:
 - Handles key management commands: record a new key, delete a key, rename a key
 - Reports recording progress back to Home Assistant via a status topic
 
-It runs as a background process and starts automatically on boot via cron (`@reboot`).
+It runs as a systemd service (`ir-bridge.service`) and starts automatically on boot.
 
 ### 2. MQTT Broker (Mosquitto) — runs on Pi 5
 
 The message router. Every message between Home Assistant and the IR bridge passes through it. Configured for anonymous access on the local network (no credentials required). Runs as a native system service on Pi 5.
 
-### 3. Home Assistant Integration (`custom_components/ir_remote`) — installed on Pi 5
+### 3. Home Assistant Integration — installed on Pi 5
 
-A custom HACS integration that adds IR remote control to Home Assistant. Once installed:
-
-- **Button entities** — one button per recorded key (e.g. "Samsung Tv Power", "Samsung Tv Volume Up"). Pressing a button sends the IR signal.
-- **Reload Devices button** — tells the bridge to re-read its device files and push any changes to Home Assistant.
-- **Recording Status sensor** — shows what the bridge is currently doing: `idle`, `recording`, `done`, `error`, or `timeout`.
-- **Services (Actions)** — available under Developer Tools → Actions:
-  - `ir_remote.record_key` — put the bridge into recording mode for a new key
-  - `ir_remote.delete_key` — permanently remove a key from a device
-  - `ir_remote.rename_key` — rename an existing key
+Provided by the companion repo [pi-dumb2smart-ir](https://github.com/h1dd3n3y3/pi-dumb2smart-ir). It adds IR remote control to Home Assistant via a custom HACS integration.
 
 ### 4. Interactive CLI (`remote.py`) — optional, runs on Pi Zero 2W
 
@@ -95,10 +87,10 @@ A terminal menu for direct local use without Home Assistant. Lets you select a d
 
 ## Deployment (CI/CD)
 
-The repo uses GitHub Actions with a self-hosted runner on Pi 5. On every push to `main` or `hacs-integration`:
+The repo uses GitHub Actions with a self-hosted runner on Pi 5. On every push to `main`:
 
 1. **Pi Zero 2W** — Pi 5 SSHes into the Pi Zero, pulls the latest code, installs any new dependencies, and restarts the IR bridge service.
-2. **Pi 5** — pulls the latest code, copies the updated HA integration files into the Home Assistant config directory, and restarts the Home Assistant Docker container.
+2. **Pi 5** — pulls the latest code locally on the runner.
 
 This means you push code on your laptop and both devices are updated automatically within seconds.
 
@@ -107,27 +99,17 @@ This means you push code on your laptop and both devices are updated automatical
 ## Project structure
 
 ```
-pi-dumb2smart-ir/
-├── mqtt_bridge.py              # IR bridge service (runs on Pi Zero 2W)
-├── remote.py                   # Interactive CLI (optional, local use)
-├── ir-mqtt-bridge.service      # systemd service file (reference copy)
-├── requirements.txt            # Python dependencies
-├── <device>.json               # Recorded IR keys per device (gitignored)
-├── custom_components/
-│   └── ir_remote/              # Home Assistant custom integration
-│       ├── __init__.py         # Integration setup, service registration
-│       ├── button.py           # Button entities (one per key + reload)
-│       ├── sensor.py           # Recording status sensor
-│       ├── config_flow.py      # HA setup UI flow
-│       ├── const.py            # Shared constants
-│       ├── manifest.json       # Integration metadata
-│       ├── services.yaml       # Action definitions for HA UI
-│       └── translations/
-│           └── en.json         # UI strings
-├── hacs.json                   # HACS metadata
+pi-dumb2smart-ir-bridge/
+├── mqtt_bridge.py          # IR bridge service (runs on Pi Zero 2W)
+├── remote.py               # Interactive CLI (optional, local use)
+├── ir-bridge.service       # systemd service unit file
+├── install.sh              # One-time setup: installs dependencies, venv, and registers the service
+├── uninstall.sh            # Tears down the service and cleans up installed files
+├── update.sh               # Called by CI/CD: copies latest files and restarts the service
+├── requirements.txt        # Python dependencies
 └── .github/
     └── workflows/
-        └── deploy.yml          # CI/CD pipeline
+        └── deploy.yml      # CI/CD pipeline
 ```
 
 ---
