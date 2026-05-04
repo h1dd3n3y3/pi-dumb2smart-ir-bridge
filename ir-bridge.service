@@ -1,6 +1,7 @@
 [Unit]
 Description=IR Remote MQTT Bridge
-After=network.target pigpiod.service
+Wants=network-online.target
+After=network-online.target pigpiod.service
 
 [Service]
 Type=simple
