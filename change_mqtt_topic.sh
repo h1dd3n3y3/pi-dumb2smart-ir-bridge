@@ -46,8 +46,9 @@ info "Updating config..."
 sed -i "s|^MQTT_PREFIX=.*|MQTT_PREFIX=${NEW_PREFIX}|" "$CONF_FILE"
 grep -q "^MQTT_PREFIX=" "$CONF_FILE" || echo "MQTT_PREFIX=${NEW_PREFIX}" >> "$CONF_FILE"
 
-info "Starting ir-bridge service with new prefix '${NEW_PREFIX}'..."
-systemctl start ir-bridge
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+info "Running update.sh..."
+bash "$SCRIPT_DIR/update.sh"
 
 printf "\n"
 printf "${green}[DONE]${nc} Prefix changed: ${yellow}${OLD_PREFIX}${nc} → ${green}${NEW_PREFIX}${nc}\n"
