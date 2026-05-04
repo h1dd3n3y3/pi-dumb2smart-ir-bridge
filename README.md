@@ -90,12 +90,35 @@ The expected file format is:
 
 ```json
 {
+  "format": { "...": "piir format block" },
   "keys": {
     "power": "<IR code>",
     "volume_up": "<IR code>"
   }
 }
 ```
+
+### Per-key repeat
+
+Some devices require a command to be sent more than once to register (e.g. a power button that only responds on the second press). Add an optional `key_options` section to the device file:
+
+```json
+{
+  "format": { "...": "piir format block" },
+  "keys": {
+    "power": "<IR code>",
+    "volume_up": "<IR code>"
+  },
+  "key_options": {
+    "power": {"repeat": 2, "delay_ms": 300}
+  }
+}
+```
+
+- `repeat` — how many times to send the signal (default: `1`)
+- `delay_ms` — gap between sends in milliseconds (default: `0`)
+
+After editing the file, trigger a reload from the Home Assistant integration — no service restart needed. Repeat settings can also be configured at runtime via the integration UI without editing the file manually.
 
 ---
 
