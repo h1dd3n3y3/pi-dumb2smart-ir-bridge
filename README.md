@@ -2,7 +2,7 @@
 
 [![Deploy](https://github.com/h1dd3n3y3/pi-dumb2smart-ir-bridge/actions/workflows/deploy.yml/badge.svg)](https://github.com/h1dd3n3y3/pi-dumb2smart-ir-bridge/actions/workflows/deploy.yml)
 
-Turns a dumb IR remote into a smart home device. A Raspberry Pi Zero 2W with an IR hat sits near your TV (or any IR-controlled device), listens for commands over your local network, and fires the infrared signal. You control everything from the Home Assistant dashboard — no SSH, no command line required after the initial setup.
+Turns any dumb IR-controlled device into a smart home device using a Raspberry Pi Zero 2W, an infrared hat, and Home Assistant. A Raspberry Pi Zero 2W with an IR hat sits near your TV (or any IR-controlled device), listens for commands over your local network, and fires the infrared signal. You control everything from the Home Assistant dashboard — no SSH, no command line required after the initial setup.
 
 ---
 
