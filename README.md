@@ -52,9 +52,9 @@ The core service. It:
 - Connects to the MQTT broker on Pi 5 at startup
 - Loads all device JSON files (each file = one remote, e.g. `samsung_tv.json`)
 - Pre-loads each device into memory so button presses respond instantly
-- Publishes MQTT Discovery messages so Home Assistant automatically creates button entities — one per recorded key, per device
+- Publishes the device and key list so the Home Assistant integration creates button entities automatically
 - Listens for button press commands and fires the IR signal via the GPIO pin
-- Handles key management commands: record a new key, delete a key, rename a key
+- Handles key management commands: record, delete, rename keys; create and delete virtual keys
 - Reports recording progress back to Home Assistant via a status topic
 
 It runs as a systemd service (`ir-bridge.service`) and starts automatically on boot.
@@ -119,6 +119,36 @@ Some devices or buttons require a command to be sent more than once to register.
 - `delay_ms` — gap between sends in milliseconds (default: `0`)
 
 After editing the file, trigger a reload from the Home Assistant integration — no service restart needed. Repeat settings can also be configured at runtime via the integration UI without editing the file manually.
+
+### Virtual keys
+
+Virtual keys are user-defined shortcuts that map a name to an existing key with a fixed repeat count and delay. They appear in Home Assistant as regular button entities alongside the recorded keys.
+
+A common use case is volume stepping — instead of pressing **Volume Up** five times, you create a `vol_up_5_steps` virtual key that sends the signal five times in one press.
+
+Add a `virtual_keys` section to the device file:
+
+```json
+{
+  "format": { "...": "piir format block" },
+  "keys": {
+    "power": "<IR code>",
+    "volume_up": "<IR code>"
+  },
+  "key_options": {
+    "power": {"repeat": 2, "delay_ms": 300}
+  },
+  "virtual_keys": {
+    "vol_up_5_steps": {"key": "volume_up", "repeat": 5, "delay_ms": 300}
+  }
+}
+```
+
+- `key` — the real recorded key to send
+- `repeat` — how many times to send it
+- `delay_ms` — gap between sends in milliseconds
+
+Virtual keys can also be created and deleted at runtime via the Home Assistant integration UI — no file editing or service restart required. They are persisted to the device JSON file so they survive bridge restarts.
 
 ---
 
