@@ -34,7 +34,7 @@ info "Updating Python packages..."
 "$INSTALL_DIR/venv/bin/pip" install --quiet --upgrade paho-mqtt piir
 
 info "Restarting service..."
-systemctl restart ir-bridge
+systemctl restart --no-block ir-bridge
 
 info "Update complete."
 systemctl status ir-bridge --no-pager || true

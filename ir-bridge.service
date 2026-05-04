@@ -12,6 +12,7 @@ ExecStartPre=/bin/bash -c 'until bash -c "echo > /dev/tcp/${MQTT_HOST}/${MQTT_PO
 ExecStart=/opt/ir-bridge/venv/bin/python /opt/ir-bridge/mqtt_bridge.py
 Restart=always
 RestartSec=5
+TimeoutStartSec=infinity
 StandardOutput=journal
 StandardError=journal
 
