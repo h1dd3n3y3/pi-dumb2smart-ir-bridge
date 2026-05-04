@@ -8,6 +8,7 @@ Type=simple
 WorkingDirectory=/var/lib/ir-bridge
 EnvironmentFile=/etc/ir-bridge/env
 Environment=PYTHONUNBUFFERED=1
+ExecStartPre=/bin/bash -c 'until bash -c "echo > /dev/tcp/${MQTT_HOST}/${MQTT_PORT}" 2>/dev/null; do sleep 2; done'
 ExecStart=/opt/ir-bridge/venv/bin/python /opt/ir-bridge/mqtt_bridge.py
 Restart=always
 RestartSec=5
