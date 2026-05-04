@@ -73,15 +73,23 @@ A terminal menu for direct local use without Home Assistant. Lets you select a d
 
 ---
 
-## Recording a new key
+## Managing remotes and keys
 
-1. In Home Assistant, go to **Developer Tools → Actions**
-2. Call `ir_remote.record_key` with:
-   - `device`: the device name (e.g. `samsung_tv`)
-   - `key`: the name you want to give this key (e.g. `volume_up`)
-3. Watch the **IR Recording Status** sensor — it will show `recording`
-4. Point your physical remote at the Pi Zero and press the button **3 times**
-5. The sensor will show `done` and a new button entity will appear in Home Assistant automatically
+All management is done through the Home Assistant UI provided by the [companion integration](https://github.com/h1dd3n3y3/pi-dumb2smart-ir).
+
+### Creating a remote
+
+1. Go to **Settings → Devices & Services** and open the IR Remote integration
+2. Open the bridge device
+3. From there you can create, delete, or rename a remote — each remote represents one physical IR-controlled device (e.g. `samsung_tv`)
+
+### Recording a key
+
+1. Open a remote inside the integration
+2. From there you can record, delete, or rename individual keys
+3. To record: select **Record** and give the key a name
+4. All bridges currently registered will enter recording mode — point your physical remote at the correct Pi Zero and press the button 2–3 times
+5. Once recorded, a new button entity appears in Home Assistant automatically
 
 ---
 
