@@ -73,18 +73,6 @@ A terminal menu for direct local use without Home Assistant. Lets you select a d
 
 ---
 
-## Recording a new key
-
-1. In Home Assistant, go to **Developer Tools → Actions**
-2. Call `ir_remote.record_key` with:
-   - `device`: the device name (e.g. `samsung_tv`)
-   - `key`: the name you want to give this key (e.g. `volume_up`)
-3. Watch the **IR Recording Status** sensor — it will show `recording`
-4. Point your physical remote at the Pi Zero and press the button **3 times**
-5. The sensor will show `done` and a new button entity will appear in Home Assistant automatically
-
----
-
 ## Deployment (CI/CD)
 
 The repo uses GitHub Actions with a self-hosted runner on Pi 5. On every push to `main`:
