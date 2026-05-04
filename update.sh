@@ -10,9 +10,17 @@ error() { printf "${red}[ERROR]${nc} %s\n" "$*" >&2; }
 
 [[ $EUID -eq 0 ]] || { error "Run with sudo: sudo ./update.sh"; exit 1; }
 
+CONF_FILE=/etc/ir-bridge/env
+
 if [[ ! -d "$INSTALL_DIR" ]]; then
     error "ir-bridge is not installed. Run install.sh first."
     exit 1
+fi
+
+if [[ -f "$CONF_FILE" ]] && ! grep -q "^MQTT_PREFIX=" "$CONF_FILE"; then
+    default_prefix="ir_remote_$(hostname)"
+    echo "MQTT_PREFIX=${default_prefix}" >> "$CONF_FILE"
+    info "MQTT_PREFIX was not set — defaulted to '${default_prefix}'. Edit $CONF_FILE to change it."
 fi
 
 info "Updating bridge script..."
