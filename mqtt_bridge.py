@@ -4,7 +4,6 @@
 Connects to the MQTT broker without credentials (anonymous access).
 Publishes:
   - <prefix>/devices          retained JSON device+key map
-  - homeassistant/button/..   MQTT Discovery configs
   - <prefix>/availability     online/offline LWT
   - <prefix>/record/status    recording progress/result
 
@@ -106,30 +105,6 @@ def _clear_device_discovery(client: mqtt.Client, device_name: str, keys: list) -
         print(f"[INFO] Cleared discovery for '{device_name}' ({len(keys)} key(s))")
 
 
-def publish_discovery(client: mqtt.Client, devices: dict) -> None:
-    for device_name, keys in devices.items():
-        device_id = f"ir_{device_name}"
-        command_topic = f"{BASE_TOPIC}/{device_name}/send"
-        for key in keys:
-            unique_id = f"{device_id}_{key}"
-            config = {
-                "name": key.replace("_", " ").title(),
-                "unique_id": unique_id,
-                "command_topic": command_topic,
-                "payload_press": key,
-                "availability_topic": AVAILABILITY_TOPIC,
-                "device": {
-                    "identifiers": [device_id],
-                    "name": device_name.replace("_", " ").title(),
-                    "model": "ANAVI IR pHAT",
-                    "manufacturer": "ANAVI",
-                },
-            }
-            topic = f"{DISCOVERY_PREFIX}/button/{unique_id}/config"
-            client.publish(topic, json.dumps(config), retain=True)
-
-    print(f"[INFO] Discovery published for {len(devices)} device(s).")
-
 
 def _build_remotes(devices: dict) -> None:
     global _remotes
@@ -149,7 +124,6 @@ def _republish_devices(client: mqtt.Client) -> None:
     devices = load_all_devices()
     client.publish(DEVICES_TOPIC, json.dumps(devices), retain=True)
     if devices:
-        publish_discovery(client, devices)
         for device_name in devices:
             client.subscribe(f"{BASE_TOPIC}/{device_name}/send")
         _build_remotes(devices)
@@ -173,20 +147,17 @@ def _do_startup(client: mqtt.Client, prev_devices: dict) -> None:
 
     current_devices = load_all_devices()
 
-    # Clear discovery for any device/key present in the previous session but not now
-    for device_name, keys in prev_devices.items():
-        stale = keys if device_name not in current_devices else [
-            k for k in keys if k not in current_devices[device_name]
-        ]
-        if stale:
-            _clear_device_discovery(client, device_name, stale)
+    # Clear any lingering MQTT discovery topics from all known devices
+    all_known = {**prev_devices, **current_devices}
+    for device_name, keys in all_known.items():
+        if keys:
+            _clear_device_discovery(client, device_name, keys)
 
     if not current_devices:
         print("[WARN] No device JSON files found — nothing to publish.")
         client.publish(DEVICES_TOPIC, json.dumps({}), retain=True)
     else:
         client.publish(DEVICES_TOPIC, json.dumps(current_devices), retain=True)
-        publish_discovery(client, current_devices)
         _build_remotes(current_devices)
         for device_name in current_devices:
             topic = f"{BASE_TOPIC}/{device_name}/send"
