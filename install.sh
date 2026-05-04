@@ -59,13 +59,11 @@ if [[ ! -f "$CONF_DIR/env" ]]; then
     read -rp "MQTT broker port (default is 1883): " mqtt_port
     mqtt_port="${mqtt_port:-1883}"
 
+    default_prefix="ir_remote_$(hostname | tr '-' '_')"
     printf "\nEach bridge must have a unique MQTT topic prefix.\n"
     printf "You will need to enter this exact value when adding this bridge in Home Assistant.\n"
-    printf "Examples: ir_remote_amp, ir_remote_tv\n\n"
-    read -rp "MQTT topic prefix for this bridge: " mqtt_prefix
-    while [[ -z "$mqtt_prefix" ]]; do
-        read -rp "MQTT topic prefix for this bridge: " mqtt_prefix
-    done
+    read -rp "MQTT topic prefix for this bridge [${default_prefix}]: " mqtt_prefix
+    mqtt_prefix="${mqtt_prefix:-$default_prefix}"
 
     cat > "$CONF_DIR/env" <<EOF
 MQTT_HOST=$mqtt_host
