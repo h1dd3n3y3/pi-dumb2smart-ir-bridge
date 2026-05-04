@@ -110,7 +110,7 @@ systemctl enable --now ir-bridge
 source "$CONF_DIR/env"
 info ""
 info "Installation complete."
+info "  Topic:  $MQTT_PREFIX"
 info "  Logs:   journalctl -u ir-bridge -f"
 info "  Config: $CONF_DIR/env"
 info "  Data:   $DATA_DIR"
-info "  Topic:  $MQTT_PREFIX"
