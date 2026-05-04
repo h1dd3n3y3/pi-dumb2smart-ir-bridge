@@ -18,7 +18,7 @@ export NEEDRESTART_MODE=l
 
 info "Installing system packages..."
 apt-get update -qq
-apt-get install -y python3-venv python3-dev python3-setuptools gcc wget unzip make
+apt-get install -y python3-venv python3-dev python3-setuptools gcc wget unzip make mosquitto-clients
 
 if command -v pigpiod &>/dev/null; then
     info "pigpiod already installed at $(command -v pigpiod) — skipping."

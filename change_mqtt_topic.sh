@@ -12,6 +12,8 @@ error() { printf "${red}[ERROR]${nc} %s\n" "$*" >&2; }
 
 [[ -f "$CONF_FILE" ]] || { error "Config file not found: $CONF_FILE — is the bridge installed?"; exit 1; }
 
+command -v mosquitto_pub &>/dev/null || { info "Installing mosquitto-clients..."; apt-get install -y mosquitto-clients; }
+
 source "$CONF_FILE"
 OLD_PREFIX="${MQTT_PREFIX:-ir_remote}"
 MQTT_HOST="${MQTT_HOST:-localhost}"
