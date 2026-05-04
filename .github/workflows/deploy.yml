@@ -16,7 +16,7 @@ jobs:
       - name: Pull latest code on pi02-reader
         run: |
           ssh -o StrictHostKeyChecking=accept-new david@pi02-reader \
-            'cd ~/pi-dumb2smart-ir && git pull && sudo ./update.sh'
+            'cd ~/pi-dumb2smart-ir-bridge && git pull && sudo ./update.sh'
 
       - name: Pull latest code on pi5
         run: |
