@@ -107,14 +107,10 @@ systemctl enable --now pigpiod
 info "Enabling ir-bridge..."
 systemctl enable --now ir-bridge
 
+source "$CONF_DIR/env"
 info ""
 info "Installation complete."
 info "  Logs:   journalctl -u ir-bridge -f"
 info "  Config: $CONF_DIR/env"
 info "  Data:   $DATA_DIR"
-
-source "$CONF_DIR/env"
-printf "\n"
-printf "${green}[IMPORTANT]${nc} MQTT topic prefix: ${green}${MQTT_PREFIX}${nc}\n"
-printf "            You will need this when adding the bridge in Home Assistant.\n"
-printf "            Find it any time in: $CONF_DIR/env\n\n"
+info "  Topic:  $MQTT_PREFIX"
