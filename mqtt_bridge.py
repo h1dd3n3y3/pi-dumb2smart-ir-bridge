@@ -3,8 +3,9 @@
 
 Connects to the MQTT broker without credentials (anonymous access).
 Publishes:
-  - <prefix>/devices                   retained JSON device+key map
+  - <prefix>/devices                   retained JSON device+key map (includes virtual key names)
   - <prefix>/key_options               retained JSON per-key repeat options
+  - <prefix>/virtual_keys              retained JSON per-device virtual key definitions
   - <prefix>/availability              online/offline LWT
   - <prefix>/record/status             recording progress/result
 
@@ -15,6 +16,8 @@ Subscribes to:
   - <prefix>/key/delete                payload = {"device":..,"key":..} → delete key
   - <prefix>/key/rename                payload = {"device":..,"old":..,"new":..} → rename key
   - <prefix>/key/set_options           payload = {"device":..,"key":..,"repeat":N,"delay_ms":N} → set repeat
+  - <prefix>/virtual_key/create        payload = {"device":..,"name":..,"key":..,"repeat":N,"delay_ms":N} → create virtual key
+  - <prefix>/virtual_key/delete        payload = {"device":..,"name":..} → delete virtual key
   - <prefix>/device/create             payload = {"device":..} → create new device JSON
   - <prefix>/device/delete             payload = {"device":..} → delete device JSON
   - <prefix>/device/rename             payload = {"old":..,"new":..} → rename device JSON
@@ -54,12 +57,16 @@ KEY_DELETE_TOPIC = f"{BASE_TOPIC}/key/delete"
 KEY_RENAME_TOPIC = f"{BASE_TOPIC}/key/rename"
 KEY_SET_OPTIONS_TOPIC = f"{BASE_TOPIC}/key/set_options"
 KEY_OPTIONS_TOPIC = f"{BASE_TOPIC}/key_options"
+VIRTUAL_KEY_CREATE_TOPIC = f"{BASE_TOPIC}/virtual_key/create"
+VIRTUAL_KEY_DELETE_TOPIC = f"{BASE_TOPIC}/virtual_key/delete"
+VIRTUAL_KEYS_TOPIC = f"{BASE_TOPIC}/virtual_keys"
 DEVICE_CREATE_TOPIC = f"{BASE_TOPIC}/device/create"
 DEVICE_DELETE_TOPIC = f"{BASE_TOPIC}/device/delete"
 DEVICE_RENAME_TOPIC = f"{BASE_TOPIC}/device/rename"
 
 _remotes: dict = {}
 _key_options: dict = {}  # {device_name: {key_name: {"repeat": N, "delay_ms": N}}}
+_virtual_keys: dict = {}  # {device_name: {vkey_name: {"key": base_key, "repeat": N, "delay_ms": N}}}
 
 # Tracks whether the startup sequence (cleanup + subscribe) has completed for
 # the current connection. Reset on each reconnect so subscriptions are
@@ -79,7 +86,8 @@ def load_all_devices() -> dict:
             with open(path) as f:
                 data = json.load(f)
             keys = list(data.get("keys", {}).keys())
-            devices[name] = keys
+            virtual = list(data.get("virtual_keys", {}).keys())
+            devices[name] = keys + virtual
         except Exception as exc:
             print(f"[WARN] Skipping {path}: {exc}")
     return devices
@@ -113,21 +121,36 @@ def _clear_device_discovery(client: mqtt.Client, device_name: str, keys: list) -
 
 
 def _build_remotes(devices: dict) -> None:
-    global _remotes, _key_options
+    global _remotes, _key_options, _virtual_keys
     _remotes = {}
     _key_options = {}
+    _virtual_keys = {}
     for device_name, keys in devices.items():
         if not keys:
             continue
         device_path = os.path.join(DATA_DIR, f"{device_name}.json")
         try:
             _remotes[device_name] = piir.Remote(device_path, TX_GPIO)
-            opts = _load_raw(device_path).get("key_options", {})
+            raw = _load_raw(device_path)
+            opts = raw.get("key_options", {})
             if opts:
                 _key_options[device_name] = opts
+            vkeys = raw.get("virtual_keys", {})
+            if vkeys:
+                _virtual_keys[device_name] = vkeys
         except Exception as exc:
             print(f"[WARN] Could not load remote for {device_name}: {exc}")
     print(f"[INFO] Remotes cached for: {list(_remotes)}")
+
+
+def _publish_virtual_keys(client: mqtt.Client) -> None:
+    all_vkeys = {}
+    for path in sorted(glob.glob(os.path.join(DATA_DIR, "*.json"))):
+        name = os.path.splitext(os.path.basename(path))[0]
+        vkeys = _load_raw(path).get("virtual_keys", {})
+        if vkeys:
+            all_vkeys[name] = vkeys
+    client.publish(VIRTUAL_KEYS_TOPIC, json.dumps(all_vkeys), retain=True)
 
 
 def _publish_key_options(client: mqtt.Client) -> None:
@@ -174,6 +197,66 @@ def _handle_set_options(client: mqtt.Client, payload: str) -> None:
     print(f"[INFO] Options updated for '{device_name}/{key_name}': repeat={repeat}, delay_ms={delay_ms}")
 
 
+def _handle_create_virtual_key(client: mqtt.Client, payload: str) -> None:
+    try:
+        data = json.loads(payload)
+        device_name = data["device"]
+        vkey_name = data["name"]
+        base_key = data["key"]
+        repeat = int(data.get("repeat", 1))
+        delay_ms = int(data.get("delay_ms", 0))
+    except Exception:
+        return
+
+    device_path = os.path.join(DATA_DIR, f"{device_name}.json")
+    if not os.path.exists(device_path):
+        return
+
+    raw = _load_raw(device_path)
+    if base_key not in raw.get("keys", {}):
+        print(f"[WARN] Base key '{base_key}' not found in '{device_name}'")
+        return
+
+    raw.setdefault("virtual_keys", {})[vkey_name] = {"key": base_key, "repeat": repeat, "delay_ms": delay_ms}
+    _save_raw(device_path, raw)
+    _virtual_keys.setdefault(device_name, {})[vkey_name] = {"key": base_key, "repeat": repeat, "delay_ms": delay_ms}
+    _republish_devices(client)
+    print(f"[INFO] Created virtual key '{vkey_name}' for '{device_name}' (base={base_key}, repeat={repeat}, delay_ms={delay_ms})")
+
+
+def _handle_delete_virtual_key(client: mqtt.Client, payload: str) -> None:
+    try:
+        data = json.loads(payload)
+        device_name = data["device"]
+        vkey_name = data["name"]
+    except Exception:
+        return
+
+    device_path = os.path.join(DATA_DIR, f"{device_name}.json")
+    if not os.path.exists(device_path):
+        return
+
+    raw = _load_raw(device_path)
+    vkeys = raw.get("virtual_keys", {})
+    if vkey_name not in vkeys:
+        return
+
+    del vkeys[vkey_name]
+    if not vkeys:
+        raw.pop("virtual_keys", None)
+    else:
+        raw["virtual_keys"] = vkeys
+    _save_raw(device_path, raw)
+
+    if device_name in _virtual_keys:
+        _virtual_keys[device_name].pop(vkey_name, None)
+        if not _virtual_keys[device_name]:
+            del _virtual_keys[device_name]
+
+    _republish_devices(client)
+    print(f"[INFO] Deleted virtual key '{vkey_name}' from '{device_name}'")
+
+
 def _republish_devices(client: mqtt.Client) -> None:
     devices = load_all_devices()
     client.publish(DEVICES_TOPIC, json.dumps(devices), retain=True)
@@ -182,6 +265,7 @@ def _republish_devices(client: mqtt.Client) -> None:
             client.subscribe(f"{BASE_TOPIC}/{device_name}/send")
         _build_remotes(devices)
     _publish_key_options(client)
+    _publish_virtual_keys(client)
     print("[INFO] Device list reloaded.")
 
 
@@ -215,13 +299,15 @@ def _do_startup(client: mqtt.Client, prev_devices: dict) -> None:
         client.publish(DEVICES_TOPIC, json.dumps(current_devices), retain=True)
         _build_remotes(current_devices)
         _publish_key_options(client)
+        _publish_virtual_keys(client)
         for device_name in current_devices:
             topic = f"{BASE_TOPIC}/{device_name}/send"
             client.subscribe(topic)
             print(f"[INFO] Subscribed to {topic}")
 
     for topic in (RELOAD_TOPIC, RECORD_START_TOPIC, KEY_DELETE_TOPIC, KEY_RENAME_TOPIC,
-                  KEY_SET_OPTIONS_TOPIC, DEVICE_CREATE_TOPIC, DEVICE_DELETE_TOPIC, DEVICE_RENAME_TOPIC):
+                  KEY_SET_OPTIONS_TOPIC, VIRTUAL_KEY_CREATE_TOPIC, VIRTUAL_KEY_DELETE_TOPIC,
+                  DEVICE_CREATE_TOPIC, DEVICE_DELETE_TOPIC, DEVICE_RENAME_TOPIC):
         client.subscribe(topic)
         print(f"[INFO] Subscribed to {topic}")
 
@@ -456,6 +542,12 @@ def on_message(client, userdata, msg):
     elif topic == KEY_SET_OPTIONS_TOPIC:
         _handle_set_options(client, payload)
 
+    elif topic == VIRTUAL_KEY_CREATE_TOPIC:
+        _handle_create_virtual_key(client, payload)
+
+    elif topic == VIRTUAL_KEY_DELETE_TOPIC:
+        _handle_delete_virtual_key(client, payload)
+
     else:
         parts = topic.split("/")
         if len(parts) == 3:
@@ -465,14 +557,22 @@ def on_message(client, userdata, msg):
                 print(f"[ERROR] No cached remote for '{device_name}'")
                 return
             try:
-                opts = _key_options.get(device_name, {}).get(payload, {})
-                repeat = opts.get("repeat", 1)
-                delay_ms = opts.get("delay_ms", 0)
-                remote.send(payload)
+                vkey = _virtual_keys.get(device_name, {}).get(payload)
+                if vkey:
+                    base_key = vkey["key"]
+                    repeat = vkey.get("repeat", 1)
+                    delay_ms = vkey.get("delay_ms", 0)
+                else:
+                    base_key = payload
+                    opts = _key_options.get(device_name, {}).get(payload, {})
+                    repeat = opts.get("repeat", 1)
+                    delay_ms = opts.get("delay_ms", 0)
+                remote.send(base_key)
                 for _ in range(repeat - 1):
                     time.sleep(delay_ms / 1000)
-                    remote.send(payload)
-                print(f"[INFO] Sent: {device_name}/{payload}" + (f" x{repeat}" if repeat > 1 else ""))
+                    remote.send(base_key)
+                log_suffix = (f" → {base_key}" if vkey else "") + (f" x{repeat}" if repeat > 1 else "")
+                print(f"[INFO] Sent: {device_name}/{payload}{log_suffix}")
             except Exception as exc:
                 print(f"[ERROR] Failed to send {device_name}/{payload}: {exc}")
 
