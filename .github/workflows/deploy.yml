@@ -1,5 +1,5 @@
 name: Deploy
-# Runs on every push to main: updates pi02-reader via SSH and syncs the HA custom component on the runner (pi5).
+# Runs on every push to main: updates pi02-reader via SSH and pulls the latest code on the runner (pi5).
 
 on:
   push:
@@ -18,8 +18,6 @@ jobs:
           ssh -o StrictHostKeyChecking=accept-new david@pi02-reader \
             'cd ~/pi-dumb2smart-ir && git pull && sudo ./update.sh'
 
-      - name: Update HA integration on pi5
+      - name: Pull latest code on pi5
         run: |
-          cd ~/pi-dumb2smart-ir && git pull
-          sudo cp -r custom_components/ir_remote ~/home-assistant/config/custom_components/
-          mosquitto_pub -h 192.168.1.254 -t "ir_remote/system/restart_needed" -m "1" || true
+          cd ~/pi-dumb2smart-ir-bridge && git pull
