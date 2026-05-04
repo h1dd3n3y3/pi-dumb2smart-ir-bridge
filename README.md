@@ -118,7 +118,7 @@ Some devices or buttons require a command to be sent more than once to register.
 - `repeat` — how many times to send the signal (default: `1`)
 - `delay_ms` — gap between sends in milliseconds (default: `0`)
 
-After editing the file, trigger a reload from the Home Assistant integration — no service restart needed. Repeat settings can also be configured at runtime via the integration UI without editing the file manually.
+After editing the file, trigger a reload from the Home Assistant integration — no service restart needed.
 
 ### Virtual keys
 
