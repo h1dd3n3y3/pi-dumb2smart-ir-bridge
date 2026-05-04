@@ -100,7 +100,7 @@ The expected file format is:
 
 ### Per-key repeat
 
-Some devices require a command to be sent more than once to register (e.g. a power button that only responds on the second press). Add an optional `key_options` section to the device file:
+Some devices or buttons require a command to be sent more than once to register. This is common for power buttons and other toggle commands where the device expects a double-pulse to confirm intent. Add an optional `key_options` section to the device file:
 
 ```json
 {
