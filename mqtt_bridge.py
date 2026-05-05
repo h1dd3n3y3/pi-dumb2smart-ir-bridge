@@ -160,11 +160,13 @@ def _handle_create_virtual_key(client: mqtt.Client, payload: str) -> None:
         base_key = data["key"]
         repeat = int(data.get("repeat", 1))
         delay_ms = int(data.get("delay_ms", 0))
-    except Exception:
+    except Exception as exc:
+        print(f"[ERROR] virtual_key/create: bad payload: {exc} — {payload!r}")
         return
 
     device_path = os.path.join(DATA_DIR, f"{device_name}.json")
     if not os.path.exists(device_path):
+        print(f"[ERROR] virtual_key/create: device '{device_name}' not found")
         return
 
     raw = _load_raw(device_path)
@@ -184,11 +186,13 @@ def _handle_delete_virtual_key(client: mqtt.Client, payload: str) -> None:
         data = json.loads(payload)
         device_name = data["device"]
         vkey_name = data["name"]
-    except Exception:
+    except Exception as exc:
+        print(f"[ERROR] virtual_key/delete: bad payload: {exc} — {payload!r}")
         return
 
     device_path = os.path.join(DATA_DIR, f"{device_name}.json")
     if not os.path.exists(device_path):
+        print(f"[ERROR] virtual_key/delete: device '{device_name}' not found")
         return
 
     raw = _load_raw(device_path)
