@@ -29,15 +29,13 @@ Home Assistant (Pi 5)
 3. The IR bridge running on Pi Zero 2W receives the message and fires the corresponding infrared signal through the IR LED.
 4. Your TV (or other device) responds as if you pressed the real remote.
 
-MQTT is a lightweight messaging protocol designed for IoT — it uses a persistent connection so messages are delivered in milliseconds.
-
 ---
 
 ## Hardware
 
 | Component | Purpose |
 |---|---|
-| Raspberry Pi Zero 2W (`pi02-reader`) | Runs the IR bridge; sends/receives IR signals |
+| Raspberry Pi Zero 2W | Runs the IR bridge; sends/receives IR signals. One per IR-controlled device. |
 | [ANAVI Infrared pHAT](https://anavi.technology/) | IR hat that plugs onto the Pi Zero — IR LED on GPIO 17, IR receiver on GPIO 18 |
 | Raspberry Pi 5 (`pi5`) | Runs Home Assistant (Docker) and the MQTT broker (Mosquitto); also acts as the GitHub Actions self-hosted runner |
 
@@ -156,10 +154,10 @@ Virtual keys can also be created and deleted at runtime via the Home Assistant i
 
 The repo uses GitHub Actions with a self-hosted runner on Pi 5. On every push to `main`:
 
-1. **Pi Zero 2W** — Pi 5 SSHes into the Pi Zero, pulls the latest code, installs any new dependencies, and restarts the IR bridge service.
-2. **Pi 5** — pulls the latest code locally on the runner.
+1. **Pi 5** — pulls the latest code locally on the runner.
+2. **All Pi Zero 2W devices** — Pi 5 runs an Ansible playbook that pulls the latest code and restarts the IR bridge service on every device in the inventory.
 
-This means you push code on your laptop and both devices are updated automatically within seconds.
+Push code on your laptop and all devices are updated automatically within seconds.
 
 ---
 
