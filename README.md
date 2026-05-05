@@ -36,7 +36,7 @@ Home Assistant (Pi 5)
 | Component | Purpose |
 |---|---|
 | Raspberry Pi Zero 2W | Runs the IR bridge; sends/receives IR signals. One per IR-controlled device. |
-| [ANAVI Infrared pHAT](https://anavi.technology/) | IR hat that plugs onto the Pi Zero — IR LED on GPIO 17, IR receiver on GPIO 18 |
+| [ANAVI Infrared pHAT](https://anavi.technology/) | IR hat that plugs onto the Pi Zero — IR LED on GPIO 17, IR receiver on GPIO 18. These pins are hardcoded in `mqtt_bridge.py` (`TX_GPIO`, `RX_GPIO`) and must be changed if using a different wiring. |
 | Raspberry Pi 5 (`pi5`) | Runs Home Assistant (Docker) and the MQTT broker (Mosquitto); also acts as the GitHub Actions self-hosted runner |
 
 ---
