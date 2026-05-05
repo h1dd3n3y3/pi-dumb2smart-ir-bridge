@@ -13,11 +13,10 @@ jobs:
       group: deploy
       cancel-in-progress: true
     steps:
-      - name: Pull latest code on pi02-reader
-        run: |
-          ssh -o StrictHostKeyChecking=accept-new david@pi02-reader \
-            'cd ~/pi-dumb2smart-ir-bridge && git pull && sudo ./update.sh'
-
       - name: Pull latest code on pi5
         run: |
           cd ~/pi-dumb2smart-ir-bridge && git pull
+
+      - name: Update IR bridge on all pi02 devices
+        run: |
+          ansible-playbook ~/ansible/playbooks/update_pi02_ir-bridge.yml -i ~/ansible/playbooks/pi02_mDNS_hosts
