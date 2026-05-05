@@ -33,23 +33,23 @@ Home Assistant (Pi 5)
 
 ---
 
-## Hardware
+## My setup
 
 | Component | Purpose |
 |---|---|
-| Raspberry Pi Zero 2W | Runs the IR bridge; sends/receives IR signals. One per IR-controlled device. |
-| [ANAVI Infrared pHAT](https://anavi.technology/) | IR hat that plugs onto the Pi Zero — IR LED on GPIO 17, IR receiver on GPIO 18. These pins are hardcoded in `mqtt_bridge.py` (`TX_GPIO`, `RX_GPIO`) and must be changed if using a different wiring. |
-| Raspberry Pi 5 (`pi5`) | Runs Home Assistant (Docker) and the MQTT broker (Mosquitto); also acts as the GitHub Actions self-hosted runner |
+| Raspberry Pi Zero 2W | Runs the IR bridge; sends/receives IR signals. One per IR-controlled device. Any Raspberry Pi compatible with the IR hat will work. |
+| [ANAVI Infrared pHAT](https://anavi.technology/) | IR hat — IR LED on GPIO 17, IR receiver on GPIO 18. These pins are hardcoded in `mqtt_bridge.py` (`TX_GPIO`, `RX_GPIO`) and must be changed if using a different wiring. |
+| Raspberry Pi 5 | Runs Home Assistant and the MQTT broker (Mosquitto). Any machine running Home Assistant and Mosquitto works — it does not have to be a Pi 5. |
 
 ---
 
 ## Software components
 
-### 1. IR Bridge (`mqtt_bridge.py`) — runs on Pi Zero 2W
+### 1. IR Bridge (`mqtt_bridge.py`) — runs on the IR device
 
 The core service. It:
 
-- Connects to the MQTT broker on Pi 5 at startup
+- Connects to the MQTT broker at startup
 - Loads all device JSON files (each file = one remote, e.g. `samsung_tv.json`)
 - Pre-loads each device into memory so button presses respond instantly
 - Publishes the device and key list so the Home Assistant integration creates button entities automatically
@@ -59,15 +59,15 @@ The core service. It:
 
 It runs as a systemd service (`ir-bridge.service`) and starts automatically on boot.
 
-### 2. MQTT Broker (Mosquitto) — runs on Pi 5
+### 2. MQTT Broker (Mosquitto) — runs on the Home Assistant host
 
-The message router. Every message between Home Assistant and the IR bridge passes through it. Configured for anonymous access on the local network (no credentials required). Runs as a native system service on Pi 5.
+The message router. Every message between Home Assistant and the IR bridge passes through it. Configured for anonymous access on the local network (no credentials required).
 
 ### 3. Home Assistant Integration — installed on Pi 5
 
 Provided by the companion repo [pi-dumb2smart-ir](https://github.com/h1dd3n3y3/pi-dumb2smart-ir). It adds IR remote control to Home Assistant via a custom HACS integration.
 
-### 4. Interactive CLI (`remote.py`) — optional, runs on Pi Zero 2W
+### 4. Interactive CLI (`remote.py`) — optional, runs on the IR device
 
 A terminal menu for direct local use without Home Assistant. Lets you select a device, record keys, send keys, list keys, and edit existing keys. Useful for initial setup or troubleshooting.
 
