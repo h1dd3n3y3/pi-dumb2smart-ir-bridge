@@ -4,6 +4,8 @@
 
 Turns any dumb IR-controlled device into a smart home device using a Raspberry Pi Zero 2W, an infrared hat, and Home Assistant. A Raspberry Pi Zero 2W with an IR hat sits near your TV (or any IR-controlled device), listens for commands over your local network, and fires the infrared signal. You control everything from the Home Assistant dashboard — no SSH, no command line required after the initial setup.
 
+> **Future:** publish as an APT package so Debian-based users can install with a single `apt install` command.
+
 ---
 
 ## How it works — big picture
