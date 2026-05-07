@@ -1,5 +1,5 @@
 name: Deploy
-# Runs on every push to main: updates pi02-reader via SSH and pulls the latest code on the runner (pi5).
+# Runs on every push to main: updates all pi02 devices using ansible and pulls the latest code on the runner (pi5).
 
 on:
   push:
