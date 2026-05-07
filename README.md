@@ -63,7 +63,7 @@ It runs as a systemd service (`ir-bridge.service`) and starts automatically on b
 
 The message router. Every message between Home Assistant and the IR bridge passes through it. Configured for anonymous access on the local network (no credentials required).
 
-### 3. Home Assistant Integration — installed on Pi 5
+### 3. Home Assistant Integration — installed on the Home Assistant Server (Pi 5)
 
 Provided by the companion repo [pi-dumb2smart-ir](https://github.com/h1dd3n3y3/pi-dumb2smart-ir). It adds IR remote control to Home Assistant via a custom HACS integration.
 
