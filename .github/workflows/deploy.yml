@@ -19,4 +19,4 @@ jobs:
 
       - name: Update IR bridge on all pi02 devices
         run: |
-          ansible-playbook ~/ansible/playbooks/update_pi02_ir-bridge.yml -i ~/ansible/playbooks/pi02_mDNS_hosts
+          ansible-playbook ~/ansible/playbooks/update_pi02_ir-bridge.yml -i ~/ansible/playbooks/pi02_hosts
