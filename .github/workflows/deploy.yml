@@ -15,7 +15,7 @@ jobs:
     steps:
       - name: Pull latest code on pi5
         run: |
-          cd ~/pi-dumb2smart-ir-bridge && git pull
+          cd ~/home-assistant/pi-dumb2smart-ir-bridge && git pull
 
       - name: Update IR bridge on all pi02 devices
         run: |
